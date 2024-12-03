@@ -2,18 +2,18 @@ import flet as ft
 import requests
 from datetime import datetime, timedelta
 
-# 気象庁のAPIのエンドポイント
+# 定数定義
 AREA_CODE_URL = "http://www.jma.go.jp/bosai/common/const/area.json"
 FORECAST_URL = "https://www.jma.go.jp/bosai/forecast/data/forecast/{}.json"
-
-# 天気アイコンのURL
 WEATHER_ICON_URL = "https://www.jma.go.jp/bosai/forecast/img/"
 
-# 地域リストの取得
+# 関数定義
 def get_area_list():
+
+    #気象庁APIから地域リストを取得する
     try:
         response = requests.get(AREA_CODE_URL)
-        response.raise_for_status()  # ステータスコードが200でない場合は例外を発生させる
+        response.raise_for_status() 
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -21,12 +21,14 @@ def get_area_list():
         print(f"An error occurred: {err}")
     return None
 
-# 天気予報の取得
 def get_weather_forecast(area_code):
+ 
+    #指定された地域コードの天気予報を取得する
+
     try:
         url = FORECAST_URL.format(area_code)
         response = requests.get(url)
-        response.raise_for_status()  # ステータスコードが200でない場合は例外を発生させる
+        response.raise_for_status()  
         return response.json()
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
@@ -34,23 +36,22 @@ def get_weather_forecast(area_code):
         print(f"An error occurred: {err}")
     return None
 
-# 天気予報カードの作成
 def create_weather_card(date_str, weather_info):
+
+    #天気予報カードを作成する
+
     weather = weather_info.get("weathers", ["-"])[0]
-    weather_img = weather_info.get("weatherCodes", ["-"])[0]
-    temp_max = weather_info.get("temps", [["-", "-"]])[0][1]
-    temp_min = weather_info.get("temps", [["-", "-"]])[0][0]
+    weather_img_code = weather_info.get("weatherCodes", ["-"])[0]
+    temp_max = weather_info.get("temps", [[None, None]])[0][1]
+    temp_min = weather_info.get("temps", [[None, None]])[0][0]
 
-    if weather_img != "-":
-        weather_icon = ft.Image(
-            src=f"{WEATHER_ICON_URL}/{weather_img}.png",
-            width=50,
-            height=50,
-            fit=ft.ImageFit.CONTAIN
-        )
-    else:
-        weather_icon = ft.Text("No Icon")
-
+    weather_icon = ft.Image(
+        src=f"{WEATHER_ICON_URL}/{weather_img_code}.png",
+        width=50,
+        height=50,
+        fit=ft.ImageFit.CONTAIN
+    ) if weather_img_code != "-" else ft.Text("No Icon")
+    
     return ft.Card(
         elevation=5,
         content=ft.Container(
@@ -63,8 +64,8 @@ def create_weather_card(date_str, weather_info):
                     ft.Text(date_str, size=14),
                     weather_icon,
                     ft.Text(weather, size=16),
-                    ft.Text(f"最高気温: {temp_max}℃", size=12),
-                    ft.Text(f"最低気温: {temp_min}℃", size=12),
+                    ft.Text(f"最高気温: {temp_max}℃" if temp_max else "最高気温: -", size=12),
+                    ft.Text(f"最低気温: {temp_min}℃" if temp_min else "最低気温: -", size=12),
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
@@ -106,14 +107,15 @@ def main(page: ft.Page):
     def on_area_change(e):
         area_code = area_dropdown.value
         weather_data = get_weather_forecast(area_code)
-        weather_view.controls.clear() # 以前の天気情報をクリア
+        weather_view.controls.clear() 
 
         if weather_data:
+            forecasts = weather_data[0]["timeSeries"][0]["areas"][0] 
             # 今日から4日間の天気予報を取得
             for i in range(4):
                 target_date = datetime.now() + timedelta(days=i)
                 date_str = target_date.strftime("%Y-%m-%d")
-                weather_view.controls.append(create_weather_card(date_str, weather_data[0]["timeSeries"][0]["areas"][0]))
+                weather_view.controls.append(create_weather_card(date_str, forecasts))
         else:
             weather_view.controls.append(ft.Text("天気情報が取得できませんでした。"))
         page.update()
